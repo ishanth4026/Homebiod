@@ -1,0 +1,9 @@
+1. The Concept of an API (Application Programming Interface)
+Websites are built for human eyes—they have pictures, ads, and formatting. Code cannot read that easily. Instead, we use an API. Think of an API like a restaurant menu for computers. We send a highly specific request to a URL (providing our latitude and longitude), and the server sends back raw data without any of the visual fluff. We are using Open-Meteo, a professional open-source API that doesn't require us to create an account, bypass firewalls, or use a paid API key.
+
+2. JSON (JavaScript Object Notation)
+When the weather server replies, it sends the data back in a format called JSON. JSON looks like a massive wall of text, but it is structured exactly like a Python Dictionary (with keys and values).
+The built-in Python line json.loads(raw_data) is crucial. It translates that raw string of text into a native Python object, allowing us to easily dig in and grab exactly what we want using weather_data['current']['temperature_2m'].
+
+3. WMO Weather Codes
+Weather APIs rarely send English words like "Raining" because they serve a global audience. Instead, Open-Meteo sends standard WMO (World Meteorological Organization) numeric codes. Code 0 is clear skies, 95 is a thunderstorm. Our Python script acts as the translator, converting those rigid numbers into the readable English we want to draw on the e-paper screen.
