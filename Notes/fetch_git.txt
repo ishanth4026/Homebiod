@@ -1,0 +1,35 @@
+The subprocess Library (The Invisible Terminal)
+You cannot natively "import git" in standard Python. Instead, we use subprocess.run(). Explain it like this: "Subprocess is a virtual set of hands. It invisibly opens up a terminal, navigates to the project folder, types the exact git command we want, hits enter, and hands the resulting text back to Python."
+
+2. Why --porcelain instead of just git status?
+If you run normal git status in your terminal, Git prints a friendly paragraph (e.g., "On branch main... Changes not staged for commit..."). But writing Python code to read paragraphs is a nightmare, especially if someone's computer is set to a different language.
+Instead, we use git status --porcelain=v1 -b. "Porcelain" is a special Git command designed strictly for machines. It strips away all the readable English and returns rigid, predictable data.
+
+## main...origin/main [ahead 1] (Branch info + commits to push)
+
+ M server.py (Modified file)
+
+?? new_file.txt (Untracked file)
+
+3. Parsing the Data
+Once Python gets that rigid text block, we split it into a list of individual lines using .split('\n'). We loop through them. If a line starts with ##, we know it's our branch and push data. If it doesn't, we know it's a file that has been messed with. We just add +1 to our modified_files counter.
+
+4. The if __name__ == "__main__": Safety Catch
+This is a hallmark of professional Python development. Later, our server.py file is going to say import fetch_git. When you import a file, Python automatically runs all the code inside it. By putting our test print statements inside this __name__ == "__main__" block, we are telling Python: "Only run this test if I directly click Play on THIS specific file. If another file imports me, hide the test."
+
+
+how does it handle nested folders?
+
+The Directory Traversal Concept
+Git was inherently designed to understand nested folder structures. 
+When you open a terminal in Project/Frontend/src and type git status, Git does not immediately fail just because there is no .git folder in src.
+
+Instead, Git uses Directory Traversal (walking up the tree). 
+It checks src. If .git isn't there, it silently moves up to Frontend. 
+If it isn't there, it moves up to Project. 
+It keeps moving up until it either finds the .git folder, or hits the absolute root of your hard drive (like C:\) and finally throws a fatal error.
+
+By removing our strict Python os.path.exists check, 
+we delegated the responsibility of finding the root repository to Git itself.
+ We wrapped the subprocess.run() in a try...except block so that if Git does hit the root of the hard drive and throws an error, 
+ our Python script catches the CalledProcessError and gracefully returns our custom dictionary error without crashing the server.
