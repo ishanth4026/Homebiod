@@ -33,3 +33,25 @@ By removing our strict Python os.path.exists check,
 we delegated the responsibility of finding the root repository to Git itself.
  We wrapped the subprocess.run() in a try...except block so that if Git does hit the root of the hard drive and throws an error, 
  our Python script catches the CalledProcessError and gracefully returns our custom dictionary error without crashing the server.
+
+ how did I differenciate between staged and unstaged files?
+
+ The Two-Column System (X and Y)
+When we run git status --porcelain, Git doesn't just give us a list of files. It gives us a strict, two-character map for every single file.
+
+Column X (Character 0): Represents the Index (what has been git added and is staged for the next commit).
+
+Column Y (Character 1): Represents the Working Tree (what you have saved in your text editor, but haven't staged yet).
+
+2. Decoding the Matrix
+Our Python script reads those two specific characters (x = line[0] and y = line[1]) to determine exactly where the file lives in the Git pipeline.
+
+If a line starts with M  (M followed by a space), x = M and y = " ". The script counts it as Staged.
+
+If a line starts with  M (Space followed by an M), x = " " and y = M. The script counts it as Unstaged.
+
+If a line starts with ??, it means the file is brand new and completely untracked. The script groups this into Unstaged.
+
+3. The Edge Case (The MM File)
+This is the ultimate Senior Dev flex for your presentation. What happens if you run git add server.py (staging it), but then immediately go back and edit server.py again without staging it? Git returns MM server.py.
+Because our if statements operate independently, our script catches both! It adds +1 to staged and +1 to unstaged, perfectly reflecting reality without crashing or double-counting total files.
