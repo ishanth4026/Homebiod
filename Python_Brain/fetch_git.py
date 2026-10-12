@@ -1,20 +1,35 @@
 import subprocess
+import os
+import re
 
-def get_git_stats(repo_path="."):
+def get_git_stats(repo_path):
     """
-    Fetches the current status of a Git repository.
-    Returns a dictionary with branch name, unpushed commits, and modified files.
+    Fetches the status of a single Git repository, including cloud updates,
+    and breaks down file modifications into staged and unstaged categories.
     """
+    project_name = os.path.basename(os.path.abspath(repo_path))
+    
     stats = {
+        "name": project_name,
         "branch": "Unknown",
-        "unpushed_commits": 0,
-        "modified_files": 0,
+        "unpushed": 0,
+        "unpulled": 0,
+        "staged": 0,      # Ready to be committed
+        "unstaged": 0,    # Modified or Untracked, not yet staged
         "error": None
     }
 
     try:
-        # We removed the strict os.path.exists check!
-        # Now we just run the command and let Git's native folder-searching take over.
+        # 1. The Reconnaissance Mission
+        subprocess.run(
+            ["git", "fetch"],
+            cwd=repo_path,
+            capture_output=True,
+            timeout=5,
+            check=False 
+        )
+        
+        # 2. Check the local status
         result = subprocess.run(
             ["git", "status", "--porcelain=v1", "-b"],
             cwd=repo_path,
@@ -26,35 +41,56 @@ def get_git_stats(repo_path="."):
         lines = result.stdout.split('\n')
         
         for line in lines:
-            if not line.strip():
+            if not line: # Skip empty lines
                 continue 
             
+            # Parse Branch and Commits
             if line.startswith('##'):
                 stats['branch'] = line[3:].split('...')[0].strip()
                 
-                if '[ahead' in line:
-                    # Extract the number of unpushed commits
-                    # We add .split(',')[0] just in case it says "[ahead 2, behind 1]"
-                    part = line.split('[ahead ')[1]
-                    stats['unpushed_commits'] = int(part.replace(']', '').split(',')[0])
+                ahead_match = re.search(r'ahead (\d+)', line)
+                if ahead_match:
+                    stats['unpushed'] = int(ahead_match.group(1))
+                    
+                behind_match = re.search(r'behind (\d+)', line)
+                if behind_match:
+                    stats['unpulled'] = int(behind_match.group(1))
             
+            # Parse Staged vs Unstaged Files
             else:
-                stats['modified_files'] += 1
+                # Porcelain output guarantees the first two characters represent the status
+                x = line[0] # The Index (Staged)
+                y = line[1] # The Working Tree (Unstaged)
+
+                # If X is M (Modified), A (Added), D (Deleted), R (Renamed), or C (Copied)
+                if x in 'MADRC':
+                    stats['staged'] += 1
+                
+                # If Y is M or D, or if the file is completely untracked (??)
+                if y in 'MD' or x == '?':
+                    stats['unstaged'] += 1
 
         return stats
 
     except subprocess.CalledProcessError:
-        # If Git searches all the way to the top of your hard drive and still
-        # can't find a .git folder, it will crash. We catch that crash here safely.
-        stats["error"] = "Not inside a Git repository."
+        stats["error"] = "Not a valid Git repo."
         return stats
-    except FileNotFoundError:
-        stats["error"] = "Git is not installed or not in PATH."
+    except Exception as e:
+        stats["error"] = f"Error: {e}"
         return stats
+
+def get_all_projects_stats(repo_paths):
+    results = []
+    for path in repo_paths:
+        results.append(get_git_stats(path))
+    return results
 
 # --- TEST BLOCK ---
 if __name__ == "__main__":
-    print("Testing Git Fetcher...")
+    print("Testing Staged vs Unstaged Git Fetcher...")
     
-    current_repo_stats = get_git_stats(".")
-    print(f"Stats: {current_repo_stats}")
+    target_projects = ["."]
+    all_stats = get_all_projects_stats(target_projects)
+    
+    for project_stat in all_stats:
+        print(project_stat)
